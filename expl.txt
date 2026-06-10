@@ -1,0 +1,232 @@
+================================================================================
+KIGALI SMART PARKING MANAGEMENT SYSTEM
+Data Structures Explanation (expl.txt)
+================================================================================
+
+This document explains which data structures are used for each feature of the
+system, what operations are performed on them, and why each structure was chosen.
+
+All storage is IN-MEMORY only (no database).
+
+================================================================================
+1. PARKING SLOT CONFIGURATION (Task 1)
+================================================================================
+
+DATA STRUCTURE:
+    unordered_map<string, ParkingSlot>  slots_
+
+KEY:        Slot ID (e.g. "C-B1", "M-A3")
+VALUE:      ParkingSlot object (slotId, vehicleType, zone, status)
+
+WHY THIS STRUCTURE:
+    - Slot IDs must be unique and looked up quickly when allocating or releasing.
+    - unordered_map gives average O(1) time for insert, find, and update.
+    - Hash map fits "key = unique identifier" access patterns better than a
+      plain vector where every search would be O(n).
+
+OPERATIONS USED:
+    INSERT  -> slots_.emplace(slotId, ParkingSlot(...))     when adding a slot
+    FIND    -> slots_.find(slotId)                           check duplicates
+    UPDATE  -> it->second.status = OCCUPIED / AVAILABLE      on entry/exit
+    TRAVERSE-> loop over all pairs                           for slot reports
+
+EXAMPLE FLOW (Add slot M-A3):
+    1. Check slots_.find("M-A3") -> must not exist (duplicate rejection)
+    2. slots_.emplace("M-A3", ParkingSlot(..., AVAILABLE))
+    3. Option 2/3 reports traverse the entire map to list slots
+
+================================================================================
+2. VEHICLE ENTRY MANAGEMENT (Task 2)
+================================================================================
+
+DATA STRUCTURES:
+    (A) unordered_map<string, VehicleEntry>  activeVehicles_
+    (B) unordered_map<string, ParkingSlot>  slots_  (shared with Task 1)
+
+KEY (activeVehicles_):  Normalized plate number (e.g. "RAC123B")
+VALUE:                  VehicleEntry (plate, vehicleType, entryDateTime, slotId)
+
+WHY activeVehicles_ IS unordered_map:
+    - Plate must be unique among currently parked vehicles.
+    - Entry: O(1) check if plate already exists (prevent double parking).
+    - Exit: O(1) lookup by plate to find entry time and assigned slot.
+    - Delete on exit: activeVehicles_.erase(plate) in O(1) average time.
+
+WHY slots_ IS ALSO USED ON ENTRY:
+    - System must find a free slot matching vehicle type.
+    - Linear scan of slots_ map: O(n) where n = number of slots (acceptable
+      for parking lot size; n is usually small).
+    - First slot with status AVAILABLE and matching vehicleType is assigned.
+    - Slot status updated to OCCUPIED in slots_.
+
+OPERATIONS USED:
+    INSERT  -> activeVehicles_.emplace(plate, VehicleEntry(...))
+    FIND    -> activeVehicles_.find(plate)                   duplicate check
+    FIND    -> findAvailableSlot() scans slots_              allocation
+    UPDATE  -> setSlotStatus(slotId, OCCUPIED)               mark slot used
+
+EXAMPLE FLOW (Plate RAC123B, Car, entry 10-06-2026 09:00):
+    1. normalizePlateNumber("RAC123B") -> "RAC123B"
+    2. activeVehicles_.find("RAC123B") -> must be absent
+    3. findAvailableSlot(CAR) -> e.g. "M-A3"
+    4. slots_["M-A3"].status = OCCUPIED
+    5. activeVehicles_["RAC123B"] = { plate, CAR, 09:00, "M-A3" }
+
+================================================================================
+3. PARKING DURATION AND FEE CALCULATION (Task 3)
+================================================================================
+
+DATA STRUCTURES:
+    (A) unordered_map<VehicleType, int>  currentPrices_
+    (B) vector<TariffPolicy*>            tariffPolicies_  (OOP defaults)
+
+KEY (currentPrices_):  VehicleType enum (MOTORCYCLE, CAR, TRUCK)
+VALUE:                 Current hourly rate in RWF
+
+WHY currentPrices_ IS unordered_map:
+    - At exit, fee needs the active rate for that vehicle type in O(1).
+    - Price updates change only currentPrices_[type]; history is separate.
+    - Small fixed set of keys (3 types) but map keeps code clean and fast.
+
+DEFAULT TARIFFS (via polymorphic TariffPolicy objects at startup):
+    Motorcycle -> 500 RWF/hour
+    Car        -> 1000 RWF/hour
+    Truck      -> 2000 RWF/hour
+
+BILLING LOGIC (not a separate structure — computed at exit):
+    durationMinutes = exit time - entry time (in minutes)
+    billedHours     = calculateBilledHours(durationMinutes)
+    totalFee        = billedHours * currentPrices_[vehicleType]
+
+CEILING-HOUR RULE (assignment requirement):
+    - Any partial hour counts as a full hour.
+    - 15 minutes  -> 1 billed hour
+    - 1h 20min    -> 2 billed hours
+    - 0 minutes   -> 1 billed hour (minimum charge; see Section 7 below)
+
+PRICE UPDATE:
+    UPDATE -> currentPrices_[type] = newPrice
+    History records keep their own ratePerHour field — not affected.
+
+================================================================================
+4. VEHICLE EXIT AND PARKING UPDATE (Task 4)
+================================================================================
+
+DATA STRUCTURES TOUCHED ON EXIT:
+    (A) activeVehicles_   -> DELETE entry for plate
+    (B) slots_            -> UPDATE slot status to AVAILABLE
+    (C) vector<ParkingTransaction>  transactionHistory_  -> APPEND record
+
+WHY transactionHistory_ IS vector:
+    - Completed sessions are only added at the end (append on exit).
+    - vector::push_back is O(1) amortized.
+    - Reports (history, daily revenue) scan all records sequentially O(n).
+    - No need for fast lookup by plate in the primary store; history search
+      by plate is a linear scan (acceptable for in-memory coursework scale).
+
+ParkingTransaction stores IMMUTABLE snapshot at exit:
+    plateNumber, vehicleType, slotId, zone,
+    entryDateTime, exitDateTime,
+    durationMinutes, billedHours, ratePerHour, totalFee
+
+WHY RATE IS STORED IN EACH TRANSACTION:
+    - If prices change later, old receipts must still show the rate used at exit.
+    - Satisfies: "Price updates must not affect completed transactions."
+
+OPERATIONS ON EXIT:
+    FIND    -> activeVehicles_.find(plate)
+    READ    -> currentPrices_.at(vehicleType)
+    APPEND  -> transactionHistory_.push_back(outTx)
+    UPDATE  -> slots_[slotId].status = AVAILABLE
+    DELETE  -> activeVehicles_.erase(plate)
+
+================================================================================
+5. OPERATIONAL REPORTS (Task 5)
+================================================================================
+
+REPORT                    DATA STRUCTURE(S) USED          OPERATION
+--------------------------------------------------------------------------------
+View all slots            slots_ (unordered_map)         Traverse all entries
+View available slots      slots_                         Traverse + filter status
+View parked vehicles      activeVehicles_ + slots_       Traverse active map
+View current tariffs      currentPrices_                 Read 3 enum keys
+Vehicle history (plate)   transactionHistory_ (vector)   Linear scan by plate
+All transaction history   transactionHistory_            Full vector traverse
+Daily revenue             transactionHistory_            Sum all totalFee fields
+
+WHY NO SEPARATE "REPORT" STRUCTURE:
+    - Reports are views over existing data; duplicating would risk inconsistency.
+    - vector traversal for history/revenue is simple and correct for assessment.
+
+================================================================================
+6. SUMMARY TABLE
+================================================================================
+
+Structure                          Type           Primary use
+--------------------------------------------------------------------------------
+slots_                             unordered_map  Slot config, availability
+activeVehicles_                    unordered_map  Who is parked right now
+currentPrices_                     unordered_map  Live hourly tariffs
+transactionHistory_                vector         Completed parking sessions
+tariffPolicies_                    vector         OOP default tariff objects
+
+================================================================================
+7. SPECIAL CASE: SAME ENTRY AND EXIT TIME (0 MINUTES)
+================================================================================
+
+EXAMPLE FROM YOUR TEST:
+    Entry:  10-06-2026 09:00
+    Exit:   10-06-2026 09:00
+    Plate:  RAC123B (Car)
+    Rate:   1500 RWF/hour (current car price at exit)
+
+STEP-BY-STEP CALCULATION:
+
+    1) Duration in minutes:
+         durationMinutes(entry, exit)
+         = (exit timestamp - entry timestamp) / 60
+         = 0 / 60
+         = 0 minutes
+
+    2) Billed hours (function calculateBilledHours):
+         if (durationMinutes <= 0) return 1;   // minimum one hour
+
+         So: 0 minutes -> billedHours = 1
+
+         This matches the assignment rule that partial time rounds UP and
+         even very short stays are charged at least one full hour.
+         (Same idea as: 15 minutes -> 1 hour.)
+
+    3) Total fee:
+         totalFee = billedHours * ratePerHour
+                  = 1 * 1500
+                  = 1500 RWF
+
+RECEIPT YOU SAW:
+    Duration:     0 minutes        <- actual elapsed time (truthful display)
+    Billed Hours: 1                <- what customer is charged for
+    Rate Applied: 1500 RWF/hour
+    Total Fee:    1500 RWF
+
+WHY EXIT AT SAME TIME IS ALLOWED (not rejected):
+    - Code only rejects exit when mins < 0 (exit BEFORE entry).
+    - mins == 0 is valid: vehicle entered and left at the same clock minute.
+    - Business rule: still charge minimum 1 hour.
+
+CODE LOCATION (main.cpp):
+    durationMinutes()        -> returns 0 when times are equal
+    calculateBilledHours()   -> returns 1 when duration <= 0
+    processVehicleExit()     -> fee = 1 * current rate
+
+================================================================================
+8. OTHER BILLING EXAMPLES (for reference)
+================================================================================
+
+Entry 09:00, Exit 09:15  -> 15 min  -> billed 1 hour  (ceiling)
+Entry 09:00, Exit 10:20  -> 80 min  -> billed 2 hours (80+59)/60 = 2
+Entry 09:00, Exit 09:00  -> 0 min   -> billed 1 hour  (minimum)
+Entry 09:00, Exit 10:00  -> 60 min  -> billed 1 hour  (exact hour)
+
+================================================================================
+END OF expl.txt
+================================================================================
