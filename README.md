@@ -38,7 +38,7 @@ The system helps parking attendants:
 | **Task 1** | Configure parking slots (add, delete, unique ID, type, zone, status) |
 | **Task 2** | Register entry; system auto-assigns slot |
 | **Task 3** | Ceiling-hour fees; live price updates |
-| **Task 4** | Exit, release slot, receipt, save transaction |
+| **Task 4** | Exit, release slot, receipt, save transaction to file |
 | **Task 5** | Reports: slots, parked vehicles, history, revenue |
 
 **Billing:** Fees at exit only. Partial hours round up (15 min → 1 hr). Price updates do not change history.
@@ -64,9 +64,26 @@ Trucks use truck-only slots (demo: `T-C1`). Same billing rules as other types.
 | `unordered_map<string, ParkingSlot>` | **Non-linear** | Slots by ID — O(1) lookup |
 | `unordered_map<string, VehicleEntry>` | **Non-linear** | Active vehicles by plate |
 | `unordered_map<VehicleType, int>` | **Non-linear** | Current hourly tariffs |
-| `vector<ParkingTransaction>` | **Linear** | Completed session history |
+| `vector<ParkingTransaction>` | **Linear** | Completed session history (loaded from file on startup) |
+| `parking_transactions.txt` | **File** | Persistent pipe-delimited transaction records |
 
 See **`expl.txt`** for simple explanations, OOP details, and O(1) vs O(n).
+
+### Transaction file format
+
+Each completed exit appends one line to **`parking_transactions.txt`**:
+
+```
+plate|typeCode|slotId|zone|entry|exit|durationMinutes|billedHours|ratePerHour|totalFee
+```
+
+Example:
+
+```
+RAB123A|1|C-A1|Downtown|10-06-2026 08:00|10-06-2026 09:20|80|2|1000|2000
+```
+
+Type codes: `0` = Motorcycle, `1` = Car, `2` = Truck. On startup, valid lines are loaded back into memory so history and revenue reports survive program restarts.
 
 ---
 
@@ -233,6 +250,7 @@ Use **today's date** and times **not in the future**.
 ```
 dsa/
 ├── main.cpp                 # Full application
+├── parking_transactions.txt # Auto-created transaction history (on first exit)
 ├── expl.txt                 # Data structures + OOP + billing explained simply
 ├── README.md                # This file
 ├── .gitignore
@@ -251,5 +269,6 @@ dsa/
 - Invalid input never crashes the program
 - `try-catch` protects menu handlers and main loop
 - Completed transactions store `ratePerHour` so price changes do not alter history
+- Each exit appends to **`parking_transactions.txt`**; history reloads automatically on next run
 
 

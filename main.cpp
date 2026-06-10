@@ -7,6 +7,7 @@
 #include <cctype>         // isalpha, isdigit, isalnum
 #include <cstdio>           // snprintf for formatting
 #include <ctime>            // time, localtime for date validation
+#include <fstream>          // ifstream, ofstream for transaction file I/O
 #include <iomanip>          // setw, left for table output
 #include <iostream>         // cin, cout
 #include <limits>           // numeric_limits for stream ignore
@@ -18,11 +19,33 @@
 
 using namespace std;        
 
+const char* TRANSACTIONS_FILE = "parking_transactions.txt"; // persisted exit records
+
 // Enumeration for supported vehicle categories
 enum class VehicleType { MOTORCYCLE, CAR, TRUCK };
 
 // Enumeration for parking slot occupancy state
 enum class SlotStatus { AVAILABLE, OCCUPIED };
+
+// Converts VehicleType enum to numeric code for file storage
+int vehicleTypeToCode(VehicleType type) {
+    switch (type) {                                    // branch on type
+        case VehicleType::MOTORCYCLE: return 0;        // motorcycle code
+        case VehicleType::CAR:        return 1;        // car code
+        case VehicleType::TRUCK:      return 2;        // truck code
+        default:                      return 1;        // safety fallback
+    }
+}
+
+// Converts numeric code from file back to VehicleType
+bool vehicleTypeFromCode(int code, VehicleType& outType) {
+    switch (code) {                                    // branch on code
+        case 0: outType = VehicleType::MOTORCYCLE; return true; // motorcycle
+        case 1: outType = VehicleType::CAR;        return true; // car
+        case 2: outType = VehicleType::TRUCK;      return true; // truck
+        default: return false;                         // unknown code
+    }
+}
 
 // Converts VehicleType enum to display text
 string vehicleTypeToString(VehicleType type) {
@@ -359,7 +382,64 @@ string zone;                                  // slot zone
           durationMinutes(0), billedHours(0), ratePerHour(0), totalFee(0) {}
 };
 
-// Core parking system using in-memory data structures only
+// Splits a line into fields using a single delimiter character
+vector<string> splitByDelimiter(const string& line, char delimiter) {
+    vector<string> parts;                              // output field list
+    stringstream ss(line);                             // stream over line
+    string part;                                       // current field
+    while (getline(ss, part, delimiter)) {             // read until delimiter
+        parts.push_back(part);                         // store field
+    }
+    return parts;                                      // return all fields
+}
+
+// Serializes one transaction as pipe-delimited text for file storage
+string serializeTransaction(const ParkingTransaction& tx) {
+    stringstream ss;                                   // build line text
+    ss << tx.plateNumber << '|'
+       << vehicleTypeToCode(tx.vehicleType) << '|'
+       << tx.slotId << '|'
+       << tx.zone << '|'
+       << formatDateTime(tx.entryDateTime) << '|'
+       << formatDateTime(tx.exitDateTime) << '|'
+       << tx.durationMinutes << '|'
+       << tx.billedHours << '|'
+       << tx.ratePerHour << '|'
+       << tx.totalFee;
+    return ss.str();                                   // return one record line
+}
+
+// Parses one pipe-delimited transaction line from file
+bool parseTransactionLine(const string& line, ParkingTransaction& outTx) {
+    string trimmed = trim(line);                       // ignore outer spaces
+    if (trimmed.empty()) return false;                 // skip blank lines
+    vector<string> parts = splitByDelimiter(trimmed, '|'); // split fields
+    if (parts.size() != 10) return false;              // require exact field count
+    if (!isValidPlateNumber(parts[0])) return false;   // validate plate
+    int typeCode = 0;                                  // vehicle type code
+    if (!parseStrictInteger(parts[1], typeCode, 0, 2)) return false; // type 0-2
+    if (!vehicleTypeFromCode(typeCode, outTx.vehicleType)) return false; // map type
+    if (!isValidSlotId(parts[2])) return false;        // validate slot id
+    if (!isValidZoneName(parts[3])) return false;      // validate zone
+    if (!parseDateTime(parts[4], outTx.entryDateTime)) return false; // entry time
+    if (!parseDateTime(parts[5], outTx.exitDateTime)) return false;  // exit time
+    int duration = 0;                                  // duration minutes
+    int billed = 0, rate = 0, fee = 0;                 // billing fields
+    if (!parseStrictInteger(parts[6], duration, 0, 1000000)) return false; // duration
+    if (!parseStrictInteger(parts[7], billed, 1, 100000)) return false;    // billed hrs
+    if (!parseStrictInteger(parts[8], rate, 1, 1000000)) return false;     // rate
+    if (!parseStrictInteger(parts[9], fee, 0, 100000000)) return false;    // total fee
+    outTx.plateNumber = parts[0];                      // store plate
+    outTx.slotId = parts[2];                           // store slot
+    outTx.zone = parts[3];                             // store zone
+    outTx.durationMinutes = static_cast<long long>(duration); // store duration
+    outTx.billedHours = billed;                        // store billed hours
+    outTx.ratePerHour = rate;                          // store rate used
+    outTx.totalFee = fee;                              // store total fee
+    return true;                                       // parsed successfully
+}
+
+// Core parking system using in-memory data structures with file-backed history
 class ParkingSystem {
 public:
     // Constructor loads default tariffs via polymorphic TariffPolicy objects
@@ -372,6 +452,7 @@ public:
                 TariffPolicy* policy = tariffPolicies_[i];      // current policy
                 currentPrices_[policy->getType()] = policy->getDefaultRate(); // set default rate
             }
+            loadTransactionHistoryFromFile();              // restore past transactions
         } catch (const exception& ex) {           // catch init errors
 cout << "Error initializing tariffs: " << ex.what() << "\n";
         }
@@ -614,6 +695,9 @@ unordered_map<string, ParkingSlot>::iterator sit = slots_.find(entry.slotId);
         outTx.totalFee = fee;                            // store total fee
 
         transactionHistory_.push_back(outTx);            // append to history vector
+        if (!appendTransactionToFile(outTx)) {           // persist for future reference
+            cout << "Warning: Transaction saved in memory but could not be written to file.\n";
+        }
         setSlotStatus(entry.slotId, SlotStatus::AVAILABLE); // release slot
         activeVehicles_.erase(vit);                        // remove active record
 
@@ -720,6 +804,34 @@ unordered_map<string, ParkingSlot>::const_iterator it = slots_.find(slotId);
         if (it == slots_.end()) return false;            // slot missing
         outSlot = it->second;                            // copy slot data
         return true;                                     // success
+    }
+
+    // Loads completed transactions from disk into memory on startup
+    void loadTransactionHistoryFromFile() {
+        ifstream inFile(TRANSACTIONS_FILE);              // open history file
+        if (!inFile.is_open()) return;                   // no file yet is normal
+        string line;                                     // one record per line
+        int loaded = 0;                                  // successful load count
+        while (getline(inFile, line)) {                  // read each line
+            ParkingTransaction tx;                       // parsed transaction
+            if (!parseTransactionLine(line, tx)) continue; // skip bad lines
+            transactionHistory_.push_back(tx);           // restore to memory
+            ++loaded;                                    // count loaded record
+        }
+        inFile.close();                                  // close input file
+        if (loaded > 0) {                                // inform user once
+            cout << "Loaded " << loaded << " saved transaction(s) from "
+                 << TRANSACTIONS_FILE << ".\n";
+        }
+    }
+
+    // Appends one completed transaction to the history file
+    bool appendTransactionToFile(const ParkingTransaction& tx) {
+        ofstream outFile(TRANSACTIONS_FILE, ios::app); // append mode
+        if (!outFile.is_open()) return false;          // cannot open file
+        outFile << serializeTransaction(tx) << '\n';   // write one record
+        outFile.close();                               // close output file
+        return true;                                   // write success
     }
 };
 
