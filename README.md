@@ -28,8 +28,6 @@ Kigali City is replacing manual paper-ticket parking with a digital system that:
 - Calculates parking fees at exit using hourly tariffs
 - Stores transaction history and generates revenue reports
 
-This solution is a **single-file C++ application** (`main.cpp`) designed for **Dev C++** and compatible with any C++11 compiler.
-
 ---
 
 ## Features
@@ -148,11 +146,26 @@ The program **never crashes** on bad input. Invalid entries show an error and th
 - `09`, `01`, letters, symbols, and decimals are **rejected**
 - Only **`0`** exits the program
 
-### Slot ID and Plate Number
+### Slot ID
 
 - 2–15 characters
 - Must start with a letter
-- Letters, digits, and hyphens only (e.g. `C-A1`, `RAB-123`)
+- Letters, digits, and hyphens only (e.g. `C-A1`, `M-A2`)
+
+### Rwandan Plate Number
+
+Format: **`RA` + letter + 3 digits + letter**
+
+| Part | Rule | Example |
+|------|------|---------|
+| Prefix | Must be `RA` | RA |
+| Letter | One letter (A–Z) | B |
+| Digits | Exactly 3 digits (0–9) | 123 |
+| Letter | One ending letter (A–Z) | A |
+
+**Valid examples:** `RAB123A`, `RA B 123 A`, `RA-B-123-A` (spaces/hyphens optional)
+
+**Invalid examples:** `RAB12A`, `RC12345B`, `RAB123`, `rab123a` is accepted and stored as `RAB123A`
 
 ### Zone Name
 
@@ -187,11 +200,11 @@ Follow these steps to verify all main features:
 |------|--------|-----------------|
 | 1 | Run program, choose **12** | Demo slots loaded (Motorcycle, Car, Truck) |
 | 2 | Choose **3** | Lists available slots |
-| 3 | Choose **4** → plate `RAB-123`, type `2`, entry `10-06-2026 08:00`* | Vehicle parked, slot assigned |
-| 4 | Choose **6** | `RAB-123` appears in parked list |
-| 5 | Choose **5** → plate `RAB-123`, exit `10-06-2026 09:20`* | Receipt: 2 hours × 1,000 = **2,000 RWF** |
+| 3 | Choose **4** → plate `RAB123A`, type `2`, entry `10-06-2026 08:00`* | Vehicle parked, slot assigned |
+| 4 | Choose **6** | `RAB123A` appears in parked list |
+| 5 | Choose **5** → plate `RAB123A`, exit `10-06-2026 09:20`* | Receipt: 2 hours × 1,000 = **2,000 RWF** |
 | 6 | Choose **7** → type `2`, new price `1500` | Car rate updated |
-| 7 | Choose **9** → plate `RAB-123` | History shows old rate (1,000) for first exit |
+| 7 | Choose **9** → plate `RAB123A` | History shows old rate (1,000) for first exit |
 | 8 | Choose **11** | Daily revenue shows 2,000 RWF |
 | 9 | At menu, type `09` | Error shown; program **does not exit** |
 | 10 | Choose **0** | Program exits with goodbye message |

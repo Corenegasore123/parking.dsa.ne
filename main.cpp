@@ -359,8 +359,8 @@ cout << "Error initializing tariffs: " << ex.what() << "\n";
 cout << "Error: Slot ID cannot be empty.\n";
             return false;                                // reject empty
         }
-        if (!isValidIdentifier(slotId)) {                // format validation
-cout << "Error: Invalid Slot ID. Start with a letter; use letters, digits, hyphens (2-15 chars).\n";
+        if (!isValidSlotId(slotId)) {                    // slot id format validation
+            cout << "Error: Invalid Slot ID. Start with a letter; use letters, digits, hyphens (2-15 chars).\n";
             return false;                                // reject bad format
         }
         if (isEmptyOrWhitespace(zone)) {               // empty zone check
@@ -423,15 +423,16 @@ cout << "Available count: " << count << "\n\n";
     // Task 2: register vehicle entry with slot allocation
     bool registerVehicleEntry(const string& plate, VehicleType type, const DateTime& entryDt) {
         if (isEmptyOrWhitespace(plate)) {                // empty plate check
-cout << "Error: Plate number cannot be empty.\n";
+            cout << "Error: Plate number cannot be empty.\n";
             return false;                                // reject empty
         }
-        if (!isValidIdentifier(plate)) {                 // plate format validation
-cout << "Error: Invalid plate number format.\n";
-            return false;                                // reject bad format
+        string normalizedPlate = normalizeRwandanPlate(plate); // RA + letter + 3 digits + letter
+        if (normalizedPlate.empty()) {                 // invalid Rwandan plate format
+            cout << "Error: Invalid Rwandan plate. Use RA + letter + 3 digits + letter (e.g. RAB123A).\n";
+            return false;                                // reject bad plate format
         }
-        if (activeVehicles_.find(plate) != activeVehicles_.end()) { // duplicate active plate
-cout << "Error: Vehicle '" << plate << "' is already parked.\n";
+        if (activeVehicles_.find(normalizedPlate) != activeVehicles_.end()) { // duplicate active plate
+            cout << "Error: Vehicle '" << normalizedPlate << "' is already parked.\n";
             return false;                                // prevent double parking
         }
         if (isFutureDateTime(entryDt)) {                 // future date/time not allowed
@@ -448,10 +449,10 @@ cout << "Error: No available " << vehicleTypeToString(type)
 cout << "Error: Failed to allocate slot '" << slotId << "'.\n";
             return false;                                // allocation failure
         }
-        activeVehicles_.emplace(plate, VehicleEntry(plate, type, entryDt, slotId)); // store active vehicle
+        activeVehicles_.emplace(normalizedPlate, VehicleEntry(normalizedPlate, type, entryDt, slotId)); // store vehicle
         ParkingSlot slotInfo;                            // slot details for message
-cout << "Success: '" << plate << "' entered at " << formatDateTime(entryDt)
-                  << ". Slot: " << slotId;
+        cout << "Success: '" << normalizedPlate << "' entered at " << formatDateTime(entryDt)
+             << ". Slot: " << slotId;
         if (getSlot(slotId, slotInfo)) cout << " (Zone: " << slotInfo.zone << ")";
 cout << ".\n";
         return true;                                     // entry success
@@ -512,16 +513,17 @@ cout << "Truck:      " << currentPrices_.at(VehicleType::TRUCK)
     // Task 4: process exit, free slot, calculate fee, store history
     bool processVehicleExit(const string& plate, const DateTime& exitDt, ParkingTransaction& outTx) {
         if (isEmptyOrWhitespace(plate)) {                // empty plate check
-cout << "Error: Plate number cannot be empty.\n";
+            cout << "Error: Plate number cannot be empty.\n";
             return false;                                // reject empty
         }
-        if (!isValidIdentifier(plate)) {                 // plate format validation
-cout << "Error: Invalid plate number format.\n";
-            return false;                                // reject bad format
+        string normalizedPlate = normalizeRwandanPlate(plate); // RA + letter + 3 digits + letter
+        if (normalizedPlate.empty()) {                 // invalid Rwandan plate format
+            cout << "Error: Invalid Rwandan plate. Use RA + letter + 3 digits + letter (e.g. RAB123A).\n";
+            return false;                                // reject bad plate format
         }
-unordered_map<string, VehicleEntry>::iterator vit = activeVehicles_.find(plate);
+        unordered_map<string, VehicleEntry>::iterator vit = activeVehicles_.find(normalizedPlate);
         if (vit == activeVehicles_.end()) {              // vehicle not parked
-cout << "Error: Vehicle '" << plate << "' is not currently parked.\n";
+            cout << "Error: Vehicle '" << normalizedPlate << "' is not currently parked.\n";
             return false;                                // prevent double exit
         }
         if (isFutureDateTime(exitDt)) {                  // future date/time not allowed
@@ -574,14 +576,19 @@ cout << "----------------------------\n";
     // Task 5: vehicle history by plate
     void displayVehicleHistory(const string& plate) const {
         if (isEmptyOrWhitespace(plate)) {                // empty plate check
-cout << "Error: Plate number cannot be empty.\n";
+            cout << "Error: Plate number cannot be empty.\n";
+            return;                                      // stop report
+        }
+        string normalizedPlate = normalizeRwandanPlate(plate); // normalize search plate
+        if (normalizedPlate.empty()) {                 // invalid Rwandan plate format
+            cout << "Error: Invalid Rwandan plate. Use RA + letter + 3 digits + letter (e.g. RAB123A).\n";
             return;                                      // stop report
         }
         bool found = false;                              // match flag
-cout << "\n--- Parking History for '" << plate << "' ---\n";
+        cout << "\n--- Parking History for '" << normalizedPlate << "' ---\n";
         for (size_t i = 0; i < transactionHistory_.size(); ++i) { // scan history
             const ParkingTransaction& tx = transactionHistory_[i]; // current record
-            if (tx.plateNumber == plate) {               // plate match
+            if (tx.plateNumber == normalizedPlate) {     // plate match
                 found = true;                            // mark found
 cout << formatDateTime(tx.entryDateTime) << " -> "
                           << formatDateTime(tx.exitDateTime) << " | "
@@ -677,8 +684,9 @@ void displayWelcome() {
 cout << "\n================================================\n";
 cout << "     KIGALI SMART PARKING MANAGEMENT SYSTEM     \n";
 cout << "================================================\n";
-cout << " Default Rates: Motorcycle 500 | Car 1000 | Truck 2000 RWF/hr\n";
-cout << " Future dates/times are NOT allowed.\n";
+    cout << " Default Rates: Motorcycle 500 | Car 1000 | Truck 2000 RWF/hr\n";
+    cout << " Plate format: RA + letter + 3 digits + letter (e.g. RAB123A)\n";
+    cout << " Future dates/times are NOT allowed.\n";
 cout << " Tip: Use option 12 to load demo slots.\n";
 cout << "================================================\n";
 }
@@ -775,9 +783,9 @@ cout << "Unexpected error: " << ex.what() << "\n";
 // Menu handler: vehicle entry
 void handleVehicleEntry(ParkingSystem& system) {
     try {                                                // exception guard
-string plate = trim(readLine("Enter plate number: "));
+        string plate = trim(readLine("Enter Rwandan plate (e.g. RAB123A): "));
         if (isEmptyOrWhitespace(plate)) {                // empty plate
-cout << "Error: Plate number cannot be empty.\n";
+            cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stay in program
         }
         VehicleType type;                                // selected type
@@ -793,9 +801,9 @@ cout << "Unexpected error: " << ex.what() << "\n";
 // Menu handler: vehicle exit
 void handleVehicleExit(ParkingSystem& system) {
     try {                                                // exception guard
-string plate = trim(readLine("Enter plate number: "));
+        string plate = trim(readLine("Enter Rwandan plate (e.g. RAB123A): "));
         if (isEmptyOrWhitespace(plate)) {                // empty plate
-cout << "Error: Plate number cannot be empty.\n";
+            cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stay in program
         }
         DateTime exitDt;                                 // exit datetime
@@ -827,9 +835,9 @@ cout << "Unexpected error: " << ex.what() << "\n";
 // Menu handler: vehicle history search
 void handleVehicleHistory(ParkingSystem& system) {
     try {                                                // exception guard
-string plate = trim(readLine("Enter plate to search: "));
+        string plate = trim(readLine("Enter Rwandan plate to search (e.g. RAB123A): "));
         if (isEmptyOrWhitespace(plate)) {                // empty plate
-cout << "Error: Plate number cannot be empty.\n";
+            cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stay in program
         }
         system.displayVehicleHistory(plate);             // show history
