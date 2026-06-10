@@ -35,7 +35,7 @@ The system helps parking attendants:
 
 | Task | Description |
 |------|-------------|
-| **Task 1** | Configure parking slots (unique ID, type, zone, status) |
+| **Task 1** | Configure parking slots (add, delete, unique ID, type, zone, status) |
 | **Task 2** | Register entry; system auto-assigns slot |
 | **Task 3** | Ceiling-hour fees; live price updates |
 | **Task 4** | Exit, release slot, receipt, save transaction |
@@ -103,16 +103,17 @@ parking.exe
 | # | Action |
 |---|--------|
 | 1 | Add parking slot |
-| 2 | View all slots |
-| 3 | View available slots |
-| 4 | Register vehicle entry (auto slot) |
-| 5 | Process vehicle exit |
-| 6 | View parked vehicles |
-| 7 | Update parking price |
-| 8 | View tariffs |
-| 9 | Vehicle history (by plate) |
-| 10 | All transaction history |
-| 11 | Daily revenue |
+| 2 | Delete parking slot |
+| 3 | View all slots |
+| 4 | View available slots |
+| 5 | Register vehicle entry (auto slot) |
+| 6 | Process vehicle exit |
+| 7 | View parked vehicles |
+| 8 | Update parking price |
+| 9 | View tariffs |
+| 10 | Vehicle history (by plate) |
+| 11 | All transaction history |
+| 12 | Daily revenue |
 | 0 | Exit |
 
 > Only **`0`** exits. `09`, `08`, letters → error, program continues.
@@ -217,10 +218,10 @@ Use **today's date** and times **not in the future**.
 | Step | Action | Expected |
 |------|--------|----------|
 | 1 | Add slots manually (option 1) or use existing configured slots | Slots listed |
-| 2 | **4** → `RAB123A`, type `2`, entry `TODAY 08:00` | Slot auto-assigned |
-| 3 | **6** | Vehicle in parked list |
-| 4 | **5** → `RAB123A`, exit `TODAY 09:20` | 2 hrs × 1000 = 2000 RWF |
-| 5 | **9** → `09` at menu | Error; program continues |
+| 2 | **5** → `RAB123A`, type `2`, entry `TODAY 08:00` | Slot auto-assigned |
+| 3 | **7** | Vehicle in parked list |
+| 4 | **6** → `RAB123A`, exit `TODAY 09:20` | 2 hrs × 1000 = 2000 RWF |
+| 5 | **10** → `09` at menu | Error; program continues |
 | 6 | Entry `YESTERDAY` | Rejected: past date |
 | 7 | Exit `TODAY` future time | Rejected: future time |
 | 8 | **0** | Exit program |
@@ -251,6 +252,4 @@ dsa/
 - `try-catch` protects menu handlers and main loop
 - Completed transactions store `ratePerHour` so price changes do not alter history
 
----
 
-Academic project — Data Structures & Algorithms (DSA).

@@ -413,6 +413,30 @@ cout << "Success: Slot '" << slotId << "' added for "
         return true;                                     // success
     }
 
+    // Task 1: remove a parking slot (available slots only)
+    bool deleteParkingSlot(const string& slotId) {
+        if (isEmptyOrWhitespace(slotId)) {               // empty slot id check
+            cout << "Error: Slot ID cannot be empty.\n";
+            return false;                                // reject empty
+        }
+        if (!isValidSlotId(slotId)) {                    // slot id format validation
+            cout << "Error: Invalid Slot ID. Start with a letter; use letters, digits, hyphens (2-15 chars).\n";
+            return false;                                // reject bad format
+        }
+        unordered_map<string, ParkingSlot>::iterator it = slots_.find(slotId);
+        if (it == slots_.end()) {                        // slot not found
+            cout << "Error: Slot ID '" << slotId << "' does not exist.\n";
+            return false;                                // reject missing slot
+        }
+        if (it->second.status == SlotStatus::OCCUPIED) { // vehicle still parked
+            cout << "Error: Slot '" << slotId << "' is occupied. Process vehicle exit before deleting.\n";
+            return false;                                // reject occupied slot
+        }
+        slots_.erase(it);                                // remove from slot map
+        cout << "Success: Slot '" << slotId << "' has been deleted.\n";
+        return true;                                     // success
+    }
+
     // Task 1 report: show all slots
     void displayAllSlots() const {
         if (slots_.empty()) {                            // no slots configured
@@ -714,16 +738,17 @@ cout << "================================================\n";
 void displayMenu() {
 cout << "\n=================== MAIN MENU ===================\n";
 cout << " 1. Add Parking Slot\n";
-cout << " 2. View All Parking Slots\n";
-cout << " 3. View Available Slots\n";
-cout << " 4. Register Vehicle Entry\n";
-cout << " 5. Process Vehicle Exit\n";
-cout << " 6. View Parked Vehicles\n";
-cout << " 7. Update Parking Price\n";
-cout << " 8. View Current Tariffs\n";
-cout << " 9. Vehicle Parking History\n";
-cout << "10. All Transaction History\n";
-cout << "11. Daily Revenue Report\n";
+cout << " 2. Delete Parking Slot\n";
+cout << " 3. View All Parking Slots\n";
+cout << " 4. View Available Slots\n";
+cout << " 5. Register Vehicle Entry\n";
+cout << " 6. Process Vehicle Exit\n";
+cout << " 7. View Parked Vehicles\n";
+cout << " 8. Update Parking Price\n";
+cout << " 9. View Current Tariffs\n";
+cout << "10. Vehicle Parking History\n";
+cout << "11. All Transaction History\n";
+cout << "12. Daily Revenue Report\n";
 cout << " 0. Exit\n";
 cout << "=================================================\n";
 }
@@ -734,11 +759,11 @@ bool readMenuChoice(int& choice) {
 string line = readLine("Enter Choice: ");         // read full line as text
   line = trim(line);                                     // trim spaces
   if (line.empty()) {                                    // empty input
-cout << "Invalid input! Please enter a valid choice (0-11).\n";
+cout << "Invalid input! Please enter a valid choice (0-12).\n";
     return false;                                        // do not exit program
   }
-  if (!parseStrictInteger(line, choice, 0, 11)) {        // strict parse 0-11
-cout << "Invalid input! Please enter a valid choice (0-11).\n";
+  if (!parseStrictInteger(line, choice, 0, 12)) {        // strict parse 0-12
+cout << "Invalid input! Please enter a valid choice (0-12).\n";
     return false;                                        // reject 09, abc, 1.5, etc.
   }
   return true;                                           // valid menu choice
@@ -779,6 +804,20 @@ bool promptDateTime(const string& label, DateTime& outDt) {
         return false;                                      // reject invalid datetime
     }
     return true;                                           // valid datetime
+}
+
+// Menu handler: delete parking slot
+void handleDeleteSlot(ParkingSystem& system) {
+    try {                                                // exception guard
+        string slotId = trim(readLine("Enter Slot ID to delete (e.g. C-A1): "));
+        if (isEmptyOrWhitespace(slotId)) {               // empty validation
+            cout << "Error: Slot ID cannot be empty.\n";
+            return;                                      // stay in program
+        }
+        system.deleteParkingSlot(slotId);                // delegate to system
+    } catch (const exception& ex) {                 // catch runtime errors
+        cout << "Unexpected error: " << ex.what() << "\n";
+    }
 }
 
 // Menu handler: add parking slot
@@ -885,18 +924,19 @@ cout << "Thank you for using Smart Parking System.\n";
             }
             switch (choice) {                            // dispatch valid options
                 case 1:  handleAddSlot(system); break;
-                case 2:  system.displayAllSlots(); break;
-                case 3:  system.displayAvailableSlots(); break;
-                case 4:  handleVehicleEntry(system); break;
-                case 5:  handleVehicleExit(system); break;
-                case 6:  system.displayParkedVehicles(); break;
-                case 7:  handlePriceUpdate(system); break;
-                case 8:  system.displayCurrentPrices(); break;
-                case 9:  handleVehicleHistory(system); break;
-                case 10: system.displayAllHistory(); break;
-                case 11: system.displayDailyRevenue(); break;
+                case 2:  handleDeleteSlot(system); break;
+                case 3:  system.displayAllSlots(); break;
+                case 4:  system.displayAvailableSlots(); break;
+                case 5:  handleVehicleEntry(system); break;
+                case 6:  handleVehicleExit(system); break;
+                case 7:  system.displayParkedVehicles(); break;
+                case 8:  handlePriceUpdate(system); break;
+                case 9:  system.displayCurrentPrices(); break;
+                case 10: handleVehicleHistory(system); break;
+                case 11: system.displayAllHistory(); break;
+                case 12: system.displayDailyRevenue(); break;
                 default:
-cout << "Invalid input! Please enter a valid choice (0-11).\n";
+cout << "Invalid input! Please enter a valid choice (0-12).\n";
                     break;                               // continue program
             }
         } catch (const exception& ex) {           // catch unexpected errors
