@@ -1,0 +1,73 @@
+# Compiled binaries
+*.exe
+*.out
+*.app
+parking
+parking.exe
+
+# Object files
+*.o
+*.obj
+*.lo
+*.slo
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Static and shared libraries
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# Dev C++ project files
+*.dev
+*.layout
+*.win
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj*
+*.sln
+*.opensdf
+*.sdf
+*.ipch
+
+# Code::Blocks
+*.cbp
+*.depend
+*.layout
+
+# CMake build output
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+
+# Debug and log files
+*.log
+*.stackdump
+core
+core.*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*~
+*.swp
+*.swo
+*.tmp
+*.bak
