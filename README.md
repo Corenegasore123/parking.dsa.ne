@@ -1,44 +1,38 @@
 # Kigali Smart Parking Management System
 
-An in-memory **C++** console application for managing public parking in Kigali City. The system demonstrates **Data Structures & Algorithms (DSA)** and **Object-Oriented Programming (OOP)** without using a database.
+Single-file C++ console app for Dev C++ (C++11). No database, no internet required.
 
-## Features
+## Compile (Dev C++)
 
-| Task | Description |
-|------|-------------|
-| **Task 1** | Configure parking slots (ID, vehicle type, zone, status) |
-| **Task 2** | Register vehicle entry with automatic slot allocation |
-| **Task 3** | Calculate parking fees with ceiling-hour billing and live price updates |
-| **Task 4** | Process vehicle exit, release slots, and store transactions |
-| **Task 5** | Operational reports: available slots, parked vehicles, history, daily revenue |
+1. Open Dev C++ → **File → New → Project → Console Application (C++)**
+2. Replace project source with `main.cpp` (or add `main.cpp` to project)
+3. **Execute → Compile & Run** (F11)
 
-## Default Parking Tariffs (RWF/hour)
-
-| Vehicle Type | Rate |
-|--------------|------|
-| Motorcycle   | 500  |
-| Car          | 1,000 |
-| Truck        | 2,000 |
-
-> Truck rate is an extension (not specified in the brief). Partial hours are always rounded **up** (15 min → 1 hour, 1h 20m → 2 hours).
-
-## Compile and Run
-
-### Windows (MinGW / g++)
+Or command line:
 
 ```bash
 g++ -std=c++11 -o parking.exe main.cpp
 parking.exe
 ```
 
-### Linux / macOS
+## Default Tariffs (RWF/hour)
 
-```bash
-g++ -std=c++11 -o parking main.cpp
-./parking
-```
+| Vehicle   | Default Rate | Notes |
+|-----------|-------------|-------|
+| Motorcycle | 500        | Per assignment brief |
+| Car        | 1,000      | Per assignment brief |
+| Truck      | 2,000      | Task 2 requires Truck; same billing rules as other types |
 
-## Menu Options
+Trucks use **Truck-only slots** (e.g. demo slot `T-C1`). Fee = billed hours × current truck rate at exit.
+
+## Important Validation Rules
+
+- **Invalid menu input (e.g. `09`, letters) does NOT exit** — shows error and re-prompts
+- **Only `0` exits** the program (not `09`, `00`, etc.)
+- **Future dates/times are NOT allowed** for entry or exit
+- Date/time format: `DD-MM-YYYY HH:MM` (e.g. `10-06-2026 14:30`)
+
+## Menu
 
 | # | Action |
 |---|--------|
@@ -46,68 +40,29 @@ g++ -std=c++11 -o parking main.cpp
 | 2 | View all slots |
 | 3 | View available slots |
 | 4 | Register vehicle entry |
-| 5 | Process vehicle exit (fee calculated here) |
-| 6 | View currently parked vehicles |
-| 7 | Update parking price (does not change history) |
-| 8 | View current tariffs |
-| 9 | Vehicle parking history (by plate) |
+| 5 | Process vehicle exit |
+| 6 | View parked vehicles |
+| 7 | Update parking price |
+| 8 | View tariffs |
+| 9 | Vehicle history |
 | 10 | All transaction history |
-| 11 | Daily revenue report |
-| 12 | Load demo test slots |
+| 11 | Daily revenue |
+| 12 | Load demo data |
 | 0 | Exit |
 
-## Quick Test Walkthrough
+## Quick Test
 
-1. Run the program and choose **12** to load demo slots.
-2. Choose **3** to see available slots.
-3. Choose **4** — register plate `RAB-123`, type **Car**, entry time `08:00`.
-4. Choose **6** to confirm the vehicle is parked.
-5. Choose **5** — exit plate `RAB-123` at `09:20` → billed **2 hours** × 1,000 = **2,000 RWF**.
-6. Choose **7** — update Car price to `1500`, then repeat entry/exit for another car.
-7. Choose **9** or **10** to verify history keeps the old rate for the first transaction.
-8. Choose **11** for daily revenue.
+1. Run program → option **12** (loads Motorcycle, Car, **Truck** slots)
+2. Option **4** → plate `RAB-123`, type `2` (Car), entry `10-06-2026 08:00` (use today, not future)
+3. Option **5** → same plate, exit `10-06-2026 09:20` → 2 hours × 1000 = **2000 RWF**
+4. Type `09` at menu → error message, program **continues** (does not exit)
 
-## System Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│              Console Menu (main.cpp)                     │
-└─────────────────────────┬───────────────────────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────────┐
-│              ParkingSystem (Facade / Controller)         │
-├──────────────┬──────────────┬──────────────┬────────────┤
-│ Slot Manager │Vehicle Mgr   │ Price Mgr    │ Report Mgr  │
-│ unordered_map│unordered_map │unordered_map │ vector      │
-│ <slotId,Slot>│<plate,Entry> │<type,rate>   │<Transaction>│
-└──────────────┴──────────────┴──────────────┴────────────┘
-```
-
-### Data Structure Justification
-
-| Structure | Key | Purpose | Why |
-|-----------|-----|---------|-----|
-| `unordered_map<string, ParkingSlot>` | Slot ID | Slot CRUD & status updates | O(1) average lookup by unique slot ID |
-| `unordered_map<string, VehicleEntry>` | Plate number | Active parking records | O(1) duplicate-entry check & exit lookup |
-| `unordered_map<VehicleType, int>` | Vehicle type | Current hourly tariffs | O(1) price read at exit time |
-| `vector<ParkingTransaction>` | — | Completed session history | O(1) append on exit; sequential traversal for reports |
-
-## Input Validation
-
-- Menu choices: invalid/non-numeric input is rejected without crashing.
-- Slot IDs & plate numbers: 2–15 chars, start with a letter, alphanumeric + hyphens.
-- Zone names: letters, spaces, hyphens only (2–30 chars).
-- Times: `HH:MM` 24-hour format; exit cannot be before entry.
-- Prices: positive integers only; history records store the rate used at exit.
-
-## Project Structure
+## Project Files
 
 ```
 dsa/
-├── main.cpp                  # Full application (models + logic + menu)
-├── README.md                 # Usage and documentation
+├── main.cpp              # Complete application
+├── README.md
 └── diagrams/
-    └── all-diagrams.html     # Architecture, DFD, class & sequence diagrams
+    └── all-diagrams.html
 ```
-
-Open `diagrams/all-diagrams.html` in a browser to view visual diagrams.
