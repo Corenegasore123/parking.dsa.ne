@@ -87,7 +87,7 @@ bool isValidSlotId(const string& value) {
     return true;                                       // valid slot id
 }
 
-// Validates plate: 6-8 characters, no spaces, no hyphens (Rwanda or foreign)
+// Validates plate: 6-8 characters, no spaces, no hyphens
 bool isValidPlateNumber(const string& plate) {
     if (plate.length() < 6 || plate.length() > 8) return false; // min 6, max 8 chars
     for (size_t i = 0; i < plate.size(); ++i) {            // scan each character
@@ -141,7 +141,7 @@ struct DateTime {
     int hour;                                          // hour 0-23
     int minute;                                        // minute 0-59
 
-    DateTime() : day(1), month(1), year(2000), hour(0), minute(0) {} // default ctor
+    DateTime() : day(1), month(1), year(2000), hour(0), minute(0) {} 
 
     // Converts this DateTime to comparable seconds since Unix epoch (local time)
     bool toTimeT(time_t& out) const {
@@ -764,7 +764,6 @@ bool promptDateTime(const string& label, DateTime& outDt) {
     DateTime today = DateTime::now();                      // show today's date as hint
     char todayHint[12];                                    // buffer for DD-MM-YYYY
     snprintf(todayHint, sizeof(todayHint), "%02d-%02d-%04d", today.day, today.month, today.year);
-    cout << "(Today: " << todayHint << " — use this date; past times OK, future time not allowed)\n";
     string line = trim(readLine(label));                   // read user line
     if (line.empty()) {                                    // empty check
         cout << "Error: Date/time cannot be empty.\n";
