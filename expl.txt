@@ -349,5 +349,175 @@ Entry 09:00, Exit 10:20  -> 80 min  -> charge 2 hours (round up)
 
 
 ================================================================================
+PART H — DATE AND TIME VALIDATION (SIMPLE RULES)
+================================================================================
+
+RULES FOR ENTRY AND EXIT:
+
+  1. DATE must be TODAY only
+     - Yesterday  -> REJECTED (past date not allowed)
+     - Tomorrow   -> REJECTED (future date not allowed)
+     - Today      -> OK to continue to time check
+
+  2. TIME on today:
+     - Past time today     -> ALLOWED (e.g. entered at 08:00 when now is 14:00)
+     - Current time today  -> ALLOWED
+     - Future time today   -> REJECTED (cannot exit or enter in the future)
+
+EXAMPLES (if today is 10-06-2026 and current time is 14:00):
+
+  09-06-2026 10:00  -> REJECT (past date)
+  11-06-2026 10:00  -> REJECT (future date)
+  10-06-2026 08:00  -> ACCEPT (today, past time)
+  10-06-2026 14:00  -> ACCEPT (today, now)
+  10-06-2026 16:00  -> REJECT (today but future time)
+
+EXIT SPECIAL RULE:
+  - Past exit time today is ALLOWED (as long as exit >= entry)
+  - Future exit time is NOT ALLOWED
+
+FUNCTIONS IN main.cpp:
+  isPastDate()              -> blocks yesterday and earlier
+  isFutureDate()            -> blocks tomorrow and later
+  isFutureDateTime()        -> blocks time later than clock now
+  validateParkingDateTime() -> calls all three checks in order
+
+
+================================================================================
+PART I — OOP FEATURES USED (WHERE AND HOW)
+================================================================================
+
+OOP means Object-Oriented Programming. We use 4 main ideas:
+
+--------------------------------------------------------------------------------
+1. ENCAPSULATION — "Hide data inside a class"
+--------------------------------------------------------------------------------
+
+WHAT IT MEANS (simple):
+  Put related data and actions together in one box (class) so the outside
+  world does not touch internal details directly.
+
+WHERE WE USE IT:
+  class ParkingSystem {
+      private:
+          slots_              // hidden inside the class
+          activeVehicles_     // hidden inside the class
+          transactionHistory_ // hidden inside the class
+      public:
+          addParkingSlot()    // safe public methods to use the data
+          registerVehicleEntry()
+          processVehicleExit()
+  }
+
+WHY:
+  The menu (main.cpp handlers) only calls ParkingSystem public methods.
+  It does not directly change slots_ or activeVehicles_ maps.
+  This keeps the program organized and safer.
+
+OTHER ENCAPSULATED CLASSES:
+  - ParkingSlot       (slotId, zone, status inside one object)
+  - VehicleEntry      (plate, entry time, slot inside one object)
+  - ParkingTransaction (full receipt data in one object)
+
+
+--------------------------------------------------------------------------------
+2. ABSTRACTION — "Show only what matters, hide the details"
+--------------------------------------------------------------------------------
+
+WHAT IT MEANS (simple):
+  User sees simple menu options. They do NOT see hash maps, loops, or fee math.
+
+WHERE WE USE IT:
+  - Menu option 4 "Register Vehicle Entry" hides:
+      * plate validation
+      * slot search
+      * map updates
+  - Menu option 5 "Process Vehicle Exit" hides:
+      * duration calculation
+      * ceiling-hour billing
+      * history storage
+
+  - TariffPolicy abstract class hides HOW each vehicle type gets its default
+    rate — callers only use getDefaultRate().
+
+WHY:
+  Attendant uses simple options. Complex logic lives inside ParkingSystem.
+
+
+--------------------------------------------------------------------------------
+3. INHERITANCE — "Child class extends parent class"
+--------------------------------------------------------------------------------
+
+WHAT IT MEANS (simple):
+  Create a parent blueprint, then make children that share the same shape
+  but fill in different details.
+
+WHERE WE USE IT:
+
+  PARENT (abstract base class):
+    class TariffPolicy {
+        virtual int getDefaultRate() const = 0;   // every child must implement
+        virtual VehicleType getType() const = 0;
+    };
+
+  CHILDREN (derived classes):
+    class MotorcycleTariff : public TariffPolicy { rate = 500;  type = MOTORCYCLE; }
+    class CarTariff        : public TariffPolicy { rate = 1000; type = CAR; }
+    class TruckTariff      : public TariffPolicy { rate = 2000; type = TRUCK; }
+
+  IN ParkingSystem CONSTRUCTOR:
+    tariffPolicies_.push_back(new MotorcycleTariff());
+    tariffPolicies_.push_back(new CarTariff());
+    tariffPolicies_.push_back(new TruckTariff());
+    // loop loads currentPrices_ from each child object
+
+WHY:
+  All three tariffs share the same interface (getType, getDefaultRate, getName)
+  but have different values. Easy to add new vehicle types later.
+
+
+--------------------------------------------------------------------------------
+4. POLYMORPHISM — "One interface, many forms"
+--------------------------------------------------------------------------------
+
+WHAT IT MEANS (simple):
+  Treat different objects the same way because they share a parent type.
+  The program calls the same method name; the RIGHT child's version runs.
+
+WHERE WE USE IT:
+
+  vector<TariffPolicy*> tariffPolicies_;   // list holds PARENT pointers
+
+  Each pointer can point to a DIFFERENT child:
+    TariffPolicy* p1 = new MotorcycleTariff();
+    TariffPolicy* p2 = new CarTariff();
+    TariffPolicy* p3 = new TruckTariff();
+
+  LOOP (polymorphic call):
+    for each policy in tariffPolicies_:
+        currentPrices_[ policy->getType() ] = policy->getDefaultRate();
+        // getType() and getDefaultRate() call the CORRECT child version
+
+  WITHOUT polymorphism we would need separate if/else for each vehicle type.
+  WITH polymorphism one loop handles all three.
+
+VIRTUAL KEYWORD:
+  virtual ~TariffPolicy()         -> virtual destructor (safe delete)
+  virtual getDefaultRate() = 0    -> pure virtual (forces children to implement)
+
+
+--------------------------------------------------------------------------------
+OOP SUMMARY TABLE
+--------------------------------------------------------------------------------
+
+OOP Feature      Where in project                    Simple purpose
+--------------------------------------------------------------------------------
+Encapsulation    ParkingSystem, model classes        Bundle data + methods
+Abstraction      Menu + ParkingSystem public API     Hide complex internals
+Inheritance      TariffPolicy -> Motorcycle/Car/Truck Share common tariff shape
+Polymorphism     tariffPolicies_ loop at startup      One loop, three rates
+
+
+================================================================================
 END OF expl.txt
 ================================================================================

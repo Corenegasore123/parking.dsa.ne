@@ -188,12 +188,49 @@ bool isValidCalendarDate(int day, int month, int year) {
     return true;                                       // date is valid
 }
 
-// Returns true if dt is later than current system date/time (future not allowed)
+// Returns true if the calendar date is before today (past dates not allowed)
+bool isPastDate(const DateTime& dt) {
+    DateTime today = DateTime::now();                    // current system date
+    if (dt.year < today.year) return true;               // year in the past
+    if (dt.year > today.year) return false;              // year in the future
+    if (dt.month < today.month) return true;             // month in the past
+    if (dt.month > today.month) return false;            // month in the future
+    return dt.day < today.day;                           // day in the past
+}
+
+// Returns true if the calendar date is after today (future dates not allowed)
+bool isFutureDate(const DateTime& dt) {
+    DateTime today = DateTime::now();                    // current system date
+    if (dt.year > today.year) return true;               // year in the future
+    if (dt.year < today.year) return false;              // year in the past
+    if (dt.month > today.month) return true;             // month in the future
+    if (dt.month < today.month) return false;            // month in the past
+    return dt.day > today.day;                           // day in the future
+}
+
+// Returns true if dt is later than current system clock (future time today not allowed)
 bool isFutureDateTime(const DateTime& dt) {
-time_t inputTime;                             // input as time_t
-    if (!dt.toTimeT(inputTime)) return true;           // invalid counts as reject
-time_t nowTime = time(NULL);             // current time
-    return inputTime > nowTime;                        // future if greater than now
+    time_t inputTime;                                    // input as time_t
+    if (!dt.toTimeT(inputTime)) return true;             // invalid counts as reject
+    time_t nowTime = time(NULL);                         // current time
+    return inputTime > nowTime;                          // future if greater than now
+}
+
+// Validates parking date/time: today only; past times OK; future time rejected
+bool validateParkingDateTime(const DateTime& dt, string& errorMsg) {
+    if (isPastDate(dt)) {                                // yesterday or earlier
+        errorMsg = "Error: Past dates are not allowed. Use today's date only.";
+        return false;                                    // reject past date
+    }
+    if (isFutureDate(dt)) {                               // tomorrow or later
+        errorMsg = "Error: Future dates are not allowed. Use today's date only.";
+        return false;                                    // reject future date
+    }
+    if (isFutureDateTime(dt)) {                            // later than now today
+        errorMsg = "Error: Future time is not allowed. Past times today are accepted.";
+        return false;                                    // reject future time
+    }
+    return true;                                         // valid for entry/exit
 }
 
 // Parses DD-MM-YYYY HH:MM string into DateTime
@@ -430,9 +467,10 @@ cout << "Available count: " << count << "\n\n";
             cout << "Error: Vehicle '" << normalizedPlate << "' is already parked.\n";
             return false;                                // prevent double parking
         }
-        if (isFutureDateTime(entryDt)) {                 // future date/time not allowed
-cout << "Error: Future entry date/time is not allowed.\n";
-            return false;                                // reject future entry
+        string dateError;                                  // validation message buffer
+        if (!validateParkingDateTime(entryDt, dateError)) { // today only; no future time
+            cout << dateError << "\n";
+            return false;                                // reject invalid entry time
         }
 string slotId;                              // slot to allocate
         if (!findAvailableSlot(type, slotId)) {          // find matching free slot
@@ -521,9 +559,10 @@ cout << "Truck:      " << currentPrices_.at(VehicleType::TRUCK)
             cout << "Error: Vehicle '" << normalizedPlate << "' is not currently parked.\n";
             return false;                                // prevent double exit
         }
-        if (isFutureDateTime(exitDt)) {                  // future date/time not allowed
-cout << "Error: Future exit date/time is not allowed.\n";
-            return false;                                // reject future exit
+        string dateError;                                  // validation message buffer
+        if (!validateParkingDateTime(exitDt, dateError)) { // today only; no future time
+            cout << dateError << "\n";
+            return false;                                // reject invalid exit time
         }
         const VehicleEntry& entry = vit->second;         // active entry record
         long long mins = durationMinutes(entry.entryDateTime, exitDt); // duration in minutes
@@ -667,7 +706,7 @@ cout << "     KIGALI SMART PARKING MANAGEMENT SYSTEM     \n";
 cout << "================================================\n";
     cout << " Default Rates: Motorcycle 500 | Car 1000 | Truck 2000 RWF/hr\n";
     cout << " Plate: 6-8 chars, no spaces or hyphens (Rwanda or foreign)\n";
-    cout << " Future dates/times are NOT allowed.\n";
+    cout << " Date/time: TODAY only | past times OK | future time NOT allowed.\n";
 cout << "================================================\n";
 }
 
@@ -720,22 +759,27 @@ cout << "Invalid input! Please enter 1, 2, or 3.\n";
     return true;                                         // success
 }
 
-// Prompts date and time; rejects future and invalid formats
+// Prompts date and time; today only, no past/future dates, no future time
 bool promptDateTime(const string& label, DateTime& outDt) {
-string line = trim(readLine(label));            // read user line
-    if (line.empty()) {                                  // empty check
-cout << "Error: Date/time cannot be empty.\n";
-        return false;                                    // reject empty
+    DateTime today = DateTime::now();                      // show today's date as hint
+    char todayHint[12];                                    // buffer for DD-MM-YYYY
+    snprintf(todayHint, sizeof(todayHint), "%02d-%02d-%04d", today.day, today.month, today.year);
+    cout << "(Today: " << todayHint << " — use this date; past times OK, future time not allowed)\n";
+    string line = trim(readLine(label));                   // read user line
+    if (line.empty()) {                                    // empty check
+        cout << "Error: Date/time cannot be empty.\n";
+        return false;                                      // reject empty
     }
-    if (!parseDateTime(line, outDt)) {                   // parse DD-MM-YYYY HH:MM
-cout << "Invalid format! Use DD-MM-YYYY HH:MM (e.g. 10-06-2026 14:30).\n";
-        return false;                                    // bad format
+    if (!parseDateTime(line, outDt)) {                     // parse DD-MM-YYYY HH:MM
+        cout << "Invalid format! Use DD-MM-YYYY HH:MM (e.g. " << todayHint << " 14:30).\n";
+        return false;                                      // bad format
     }
-    if (isFutureDateTime(outDt)) {                       // future not allowed
-cout << "Error: Future date/time is not allowed.\n";
-        return false;                                    // reject future
+    string dateError;                                      // validation message
+    if (!validateParkingDateTime(outDt, dateError)) {      // date/time rules
+        cout << dateError << "\n";
+        return false;                                      // reject invalid datetime
     }
-    return true;                                         // valid datetime
+    return true;                                           // valid datetime
 }
 
 // Menu handler: add parking slot

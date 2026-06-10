@@ -1,6 +1,6 @@
 # Kigali Smart Parking Management System
 
-A console-based **Smart Parking Management System** for Kigali City, built in **C++** using **in-memory data structures only** (no database). The program helps parking attendants manage slots, vehicle entry/exit, fee calculation, and operational reports in real time.
+A console-based **Smart Parking Management System** for Kigali City, built in **C++** with **in-memory data structures only** (no database). Uses `using namespace std;` for clean console I/O (`cout`, `cin`).
 
 ---
 
@@ -8,25 +8,26 @@ A console-based **Smart Parking Management System** for Kigali City, built in **
 
 1. [Overview](#overview)
 2. [Features](#features)
-3. [Default Parking Tariffs](#default-parking-tariffs)
-4. [Data Structures Used](#data-structures-used)
-5. [How to Compile and Run](#how-to-compile-and-run)
-6. [Menu Options](#menu-options)
-7. [Input Formats and Validation](#input-formats-and-validation)
-8. [Quick Test Walkthrough](#quick-test-walkthrough)
-9. [Project Structure](#project-structure)
-10. [Design Notes](#design-notes)
+3. [Default Tariffs](#default-parking-tariffs)
+4. [Data Structures](#data-structures-used)
+5. [OOP Design](#oop-design)
+6. [Compile & Run](#how-to-compile-and-run)
+7. [Menu Options](#menu-options)
+8. [Validation Rules](#input-formats-and-validation)
+9. [Architecture Diagrams](#system-architecture--data-flow-diagrams)
+10. [Testing Guide](#quick-test-walkthrough)
+11. [Project Files](#project-structure)
 
 ---
 
 ## Overview
 
-Kigali City is replacing manual paper-ticket parking with a digital system that:
+The system helps parking attendants:
 
-- Configures and tracks parking slots by vehicle type and zone
-- Registers vehicle entry and auto-allocates suitable slots
-- Calculates parking fees at exit using hourly tariffs
-- Stores transaction history and generates revenue reports
+- Configure and track parking slots by vehicle type and zone
+- **Automatically allocate** a free matching slot on vehicle entry
+- Calculate parking fees at exit using ceiling-hour billing
+- Store transaction history and generate revenue reports
 
 ---
 
@@ -34,180 +35,195 @@ Kigali City is replacing manual paper-ticket parking with a digital system that:
 
 | Task | Description |
 |------|-------------|
-| **Task 1** | Configure parking slots (Slot ID, vehicle type, zone, status) |
-| **Task 2** | Register vehicle entry with automatic slot allocation |
-| **Task 3** | Calculate fees with ceiling-hour billing; update prices at runtime |
-| **Task 4** | Process vehicle exit, release slot, print receipt, save transaction |
-| **Task 5** | Reports: available slots, parked vehicles, history, daily revenue |
+| **Task 1** | Configure parking slots (unique ID, type, zone, status) |
+| **Task 2** | Register entry; system auto-assigns slot |
+| **Task 3** | Ceiling-hour fees; live price updates |
+| **Task 4** | Exit, release slot, receipt, save transaction |
+| **Task 5** | Reports: slots, parked vehicles, history, revenue |
 
-### Billing Rules
-
-- Fees are calculated **only when a vehicle exits**
-- Partial hours are rounded **up** (15 min → 1 hour, 1h 20m → 2 hours)
-- Price updates affect **future exits only** — completed history is unchanged
+**Billing:** Fees at exit only. Partial hours round up (15 min → 1 hr). Price updates do not change history.
 
 ---
 
 ## Default Parking Tariffs
 
-| Vehicle Type | Rate (RWF/hour) | Notes |
-|--------------|-----------------|-------|
-| Motorcycle   | 500             | As per assignment brief |
-| Car          | 1,000           | As per assignment brief |
-| Truck        | 2,000           | Required by Task 2; uses truck-only slots |
+| Vehicle | Rate (RWF/hr) |
+|---------|---------------|
+| Motorcycle | 500 |
+| Car | 1,000 |
+| Truck | 2,000 |
 
-**Truck handling:** Trucks can only park in slots configured for `Truck`. The demo data includes slot `T-C1` in the Industrial zone. Billing uses the same ceiling-hour rule as other vehicle types.
+Trucks use truck-only slots (demo: `T-C1`). Same billing rules as other types.
 
 ---
 
 ## Data Structures Used
 
-| Structure | Key | Purpose |
-|-----------|-----|---------|
-| `unordered_map<string, ParkingSlot>` | Slot ID | Fast slot lookup, insert, and status update |
-| `unordered_map<string, VehicleEntry>` | Plate number | Prevent duplicate active parking; fast exit lookup |
-| `unordered_map<VehicleType, int>` | Vehicle type | Store and update current hourly tariffs |
-| `vector<ParkingTransaction>` | — | Append completed sessions; traverse for reports |
+| Structure | Linear / Non-linear | Purpose |
+|-----------|---------------------|---------|
+| `unordered_map<string, ParkingSlot>` | **Non-linear** | Slots by ID — O(1) lookup |
+| `unordered_map<string, VehicleEntry>` | **Non-linear** | Active vehicles by plate |
+| `unordered_map<VehicleType, int>` | **Non-linear** | Current hourly tariffs |
+| `vector<ParkingTransaction>` | **Linear** | Completed session history |
+
+See **`expl.txt`** for simple explanations, OOP details, and O(1) vs O(n).
+
+---
+
+## OOP Design
+
+| Principle | Where used |
+|-----------|------------|
+| **Encapsulation** | `ParkingSystem` hides maps/vector; public methods only |
+| **Abstraction** | Menu calls simple options; complex logic inside `ParkingSystem` |
+| **Inheritance** | `MotorcycleTariff`, `CarTariff`, `TruckTariff` extend `TariffPolicy` |
+| **Polymorphism** | `tariffPolicies_` loop calls `getDefaultRate()` on each child type |
 
 ---
 
 ## How to Compile and Run
 
-### Option A — Dev C++ (Recommended for assessment)
+### Dev C++
 
-1. Open **Dev C++**
-2. Go to **File → New → Project → Console Application (C++)**
-3. Save the project, then replace the generated `.cpp` content with `main.cpp`
-4. Press **F11** (Compile & Run)
+1. Open Dev C++ → **Console Application (C++)**
+2. Use `main.cpp` as source
+3. Press **F11**
 
-### Option B — Command Line (g++)
-
-**Windows:**
+### Command line
 
 ```bash
 g++ -std=c++11 -o parking.exe main.cpp
 parking.exe
 ```
 
-**Linux / macOS:**
-
-```bash
-g++ -std=c++11 -o parking main.cpp
-./parking
-```
-
-> **Note:** No internet connection is required. No external libraries are needed.
-
 ---
 
 ## Menu Options
 
-```
- 1. Add Parking Slot
- 2. View All Parking Slots
- 3. View Available Slots
- 4. Register Vehicle Entry
- 5. Process Vehicle Exit
- 6. View Parked Vehicles
- 7. Update Parking Price
- 8. View Current Tariffs
- 9. Vehicle Parking History
-10. All Transaction History
-11. Daily Revenue Report
-12. Load Demo Data
- 0. Exit
-```
+| # | Action |
+|---|--------|
+| 1 | Add parking slot |
+| 2 | View all slots |
+| 3 | View available slots |
+| 4 | Register vehicle entry (auto slot) |
+| 5 | Process vehicle exit |
+| 6 | View parked vehicles |
+| 7 | Update parking price |
+| 8 | View tariffs |
+| 9 | Vehicle history (by plate) |
+| 10 | All transaction history |
+| 11 | Daily revenue |
+| 0 | Exit |
 
-| Option | What it does |
-|--------|--------------|
-| 1 | Add a new slot (unique ID, vehicle type, zone) |
-| 2 | List all slots with status (Available / Occupied) |
-| 3 | List only free slots |
-| 4 | Register a vehicle; system assigns a matching free slot |
-| 5 | Exit a vehicle; calculates fee and prints receipt |
-| 6 | Show all currently parked vehicles |
-| 7 | Change hourly rate for Motorcycle, Car, or Truck |
-| 8 | Display current tariffs |
-| 9 | Show parking history for one plate number |
-| 10 | Show all completed transactions |
-| 11 | Show total revenue from completed sessions |
-| 12 | Load sample slots for testing |
-| 0 | Exit the program safely |
+> Only **`0`** exits. `09`, `08`, letters → error, program continues.
 
 ---
 
 ## Input Formats and Validation
 
-The program **never crashes** on bad input. Invalid entries show an error and the menu is shown again.
+### Plate number
 
-### Menu
+- **6–8 characters**, no spaces, no hyphens
+- Rwanda or foreign plates (e.g. `RAB123A`, `UG1234AB`)
 
-- Only whole numbers **0–12** are accepted
-- `09`, `01`, letters, symbols, and decimals are **rejected**
-- Only **`0`** exits the program
+### Date and time (entry & exit)
+
+Format: **`DD-MM-YYYY HH:MM`** (24-hour)
+
+| Rule | Allowed? |
+|------|----------|
+| **Today's date only** | Yes |
+| **Past dates** (yesterday, etc.) | No |
+| **Future dates** (tomorrow, etc.) | No |
+| **Past time today** (e.g. 08:00 when now is 14:00) | Yes |
+| **Future time today** (e.g. 16:00 when now is 14:00) | No |
+| Exit before entry | No |
+
+The program shows today's date when prompting for entry/exit time.
 
 ### Slot ID
 
-- 2–15 characters
-- Must start with a letter
-- Letters, digits, and hyphens only (e.g. `C-A1`, `M-A2`)
+- 2–15 chars, starts with letter, alphanumeric + hyphens (`C-A1`)
 
-### Plate Number (Rwanda or foreign)
+### Zone
 
-| Rule | Details |
-|------|---------|
-| Length | 6 to 8 characters |
-| Spaces | Not allowed |
-| Hyphens | Not allowed |
-| Countries | Rwandan and foreign plates accepted |
+- Letters, spaces, hyphens only (`Downtown`)
 
-**Valid examples:** `RAB123A`, `UG1234AB`, `KDA1234`
+---
 
-**Invalid examples:** `RA B123A` (space), `RA-B123A` (hyphen), `ABC12` (too short), `TOOLONGPL` (more than 8 chars)
+## System Architecture & Data Flow Diagrams
 
-### Zone Name
+Open **`diagrams/all-diagrams.html`** in a browser, or copy Mermaid from **`diagrams/DIAGRAMS.md`**.
 
-- 2–30 characters
-- Letters, spaces, and hyphens only (e.g. `Downtown`, `New York`)
+### System Architecture (Mermaid)
 
-### Date and Time (Entry / Exit)
+```mermaid
+flowchart TB
+    subgraph UI["Presentation Layer"]
+        MENU["Console Menu (main.cpp)"]
+    end
+    subgraph APP["ParkingSystem"]
+        PS["Facade"]
+        T1["Slot Config"] & T2["Vehicle Entry"] & T3["Fees"] & T4["Exit"] & T5["Reports"]
+    end
+    subgraph DS["In-Memory Stores"]
+        M1[("slots_ map")] & M2[("activeVehicles_ map")] & M3[("currentPrices_ map")] & V1[("history vector")]
+    end
+    MENU --> PS --> T1 & T2 & T3 & T4 & T5
+    T1 --> M1
+    T2 --> M1 & M2
+    T3 --> M3
+    T4 --> M1 & M2 & V1
+    T5 --> M1 & M2 & V1
+```
 
-- Format: **`DD-MM-YYYY HH:MM`** (24-hour clock)
-- Example: `10-06-2026 14:30`
-- **Future dates and times are not allowed**
-- Exit cannot be earlier than entry
+### Data Flow Diagram (Mermaid)
 
-### Parking Price
+```mermaid
+flowchart LR
+    USER(["Attendant"])
+    P1["Configure Slot"] & P2["Register Entry"] & P3["Update Price"] & P4["Process Exit"] & P5["Reports"]
+    D1[("slots_")] & D2[("activeVehicles_")] & D3[("prices_")] & D4[("history_")]
+    USER --> P1 --> D1
+    USER --> P2 --> D1 & D2
+    USER --> P3 --> D3
+    USER --> P4
+    D2 & D3 --> P4 --> D1 & D2 & D4 --> USER
+    USER --> P5
+    D1 & D2 & D4 --> P5 --> USER
+```
 
-- Must be a positive whole number (RWF per hour)
-- Zero, negative values, and non-numeric input are rejected
+### Date/Time Validation Flow
 
-### Vehicle Type
-
-- `1` = Motorcycle
-- `2` = Car
-- `3` = Truck
+```mermaid
+flowchart TD
+    IN["Enter date/time"] --> FMT{"Valid format?"}
+    FMT -->|No| E1["Error"]
+    FMT -->|Yes| PD{"Past date?"}
+    PD -->|Yes| E2["Reject"]
+    PD -->|No| FD{"Future date?"}
+    FD -->|Yes| E3["Reject"]
+    FD -->|No| FT{"Future time?"}
+    FT -->|Yes| E4["Reject"]
+    FT -->|No| OK["Accept"]
+```
 
 ---
 
 ## Quick Test Walkthrough
 
-Follow these steps to verify all main features:
+Use **today's date** and times **not in the future**.
 
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Run program, choose **12** | Demo slots loaded (Motorcycle, Car, Truck) |
-| 2 | Choose **3** | Lists available slots |
-| 3 | Choose **4** → plate `RAB123A`, type `2`, entry `10-06-2026 08:00`* | Vehicle parked, slot assigned |
-| 4 | Choose **6** | `RAB123A` appears in parked list |
-| 5 | Choose **5** → plate `RAB123A`, exit `10-06-2026 09:20`* | Receipt: 2 hours × 1,000 = **2,000 RWF** |
-| 6 | Choose **7** → type `2`, new price `1500` | Car rate updated |
-| 7 | Choose **9** → plate `RAB123A` | History shows old rate (1,000) for first exit |
-| 8 | Choose **11** | Daily revenue shows 2,000 RWF |
-| 9 | At menu, type `09` | Error shown; program **does not exit** |
-| 10 | Choose **0** | Program exits with goodbye message |
-
-\* Use **today's date** and a time **not in the future** when testing.
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Add slots manually (option 1) or use existing configured slots | Slots listed |
+| 2 | **4** → `RAB123A`, type `2`, entry `TODAY 08:00` | Slot auto-assigned |
+| 3 | **6** | Vehicle in parked list |
+| 4 | **5** → `RAB123A`, exit `TODAY 09:20` | 2 hrs × 1000 = 2000 RWF |
+| 5 | **9** → `09` at menu | Error; program continues |
+| 6 | Entry `YESTERDAY` | Rejected: past date |
+| 7 | Exit `TODAY` future time | Rejected: future time |
+| 8 | **0** | Exit program |
 
 ---
 
@@ -215,35 +231,26 @@ Follow these steps to verify all main features:
 
 ```
 dsa/
-├── main.cpp          # Complete application (all logic in one file)
-├── README.md         # This file
-├── .gitignore        # Git ignore rules for build artifacts
-└── diagrams/         # Optional: architecture diagrams (HTML)
-    └── all-diagrams.html
+├── main.cpp                 # Full application
+├── expl.txt                 # Data structures + OOP + billing explained simply
+├── README.md                # This file
+├── .gitignore
+└── diagrams/
+    ├── all-diagrams.html    # Visual diagrams in browser
+    ├── DIAGRAMS.md          # Mermaid source codes
+    ├── SYSTEM ARCHITECTURE DIAGRAM.png
+    └── DATA FLOW DIAGRAM.png
 ```
 
 ---
 
 ## Design Notes
 
-### Object-Oriented Programming
-
-- **Encapsulation:** `ParkingSystem` manages all data and operations
-- **Abstraction:** Tariff rules hidden behind `TariffPolicy` interface
-- **Inheritance & Polymorphism:** `MotorcycleTariff`, `CarTariff`, `TruckTariff` extend `TariffPolicy`
-
-### Error Handling
-
-- `try-catch` blocks protect the main loop and menu handlers
-- Invalid `cin` input is cleared and the user is re-prompted
-- Empty strings and whitespace-only input are rejected
-
-### System Stability
-
-The program runs continuously until the user explicitly selects **0 (Exit)**. Invalid input never terminates the application.
+- Slots are **automatically assigned** — attendant does not pick slot ID
+- Invalid input never crashes the program
+- `try-catch` protects menu handlers and main loop
+- Completed transactions store `ratePerHour` so price changes do not alter history
 
 ---
 
-## License
-
-Academic project for Data Structures and Algorithms (DSA) coursework.
+Academic project — Data Structures & Algorithms (DSA).
