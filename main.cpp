@@ -1,9 +1,9 @@
 /*
  * Kigali Smart Parking Management System
- * Compile: g++ -std=c++11 -o parking main.cpp
+ * Compile: g++ -o parking main.cpp
  */
 
-#include <algorithm>      //  algorithms if needed
+#include <algorithm>      
 #include <cctype>         // isalpha, isdigit, isalnum
 #include <cstdio>           // snprintf for formatting
 #include <ctime>            // time, localtime for date validation
@@ -16,7 +16,7 @@
 #include <unordered_map>    // hash maps for O(1) lookup
 #include <vector>           // vector for transaction history
 
-using namespace std;        // allow cout, cin, string without  prefix
+using namespace std;        
 
 // Enumeration for supported vehicle categories
 enum class VehicleType { MOTORCYCLE, CAR, TRUCK };
@@ -502,7 +502,7 @@ cout << "\n--- Current Parking Tariffs (RWF/hour) ---\n";
 cout << "Motorcycle: " << currentPrices_.at(VehicleType::MOTORCYCLE) << "\n";
 cout << "Car:        " << currentPrices_.at(VehicleType::CAR) << "\n";
 cout << "Truck:      " << currentPrices_.at(VehicleType::TRUCK)
-                  << "  (Truck uses same billing rules; default 2000 RWF/hour)\n\n";
+                  << "\n";
     }
 
     // Task 4: process exit, free slot, calculate fee, store history
@@ -625,20 +625,6 @@ cout << "Completed transactions: " << transactionHistory_.size() << "\n";
 cout << "Total revenue:          " << total << " RWF\n\n";
     }
 
-    // Load demo slots for testing (includes Truck slot T-C1)
-    void loadDemoData() {
-        if (!slots_.empty()) {                           // avoid overwrite
-cout << "Demo data skipped: slots already exist.\n";
-            return;                                      // stop loading
-        }
-        addParkingSlot("M-A1", VehicleType::MOTORCYCLE, "Downtown"); // motorcycle slot
-        addParkingSlot("M-A2", VehicleType::MOTORCYCLE, "Downtown"); // motorcycle slot
-        addParkingSlot("C-B1", VehicleType::CAR, "Airport");         // car slot
-        addParkingSlot("C-B2", VehicleType::CAR, "Airport");         // car slot
-        addParkingSlot("T-C1", VehicleType::TRUCK, "Industrial");    // truck slot
-cout << "Demo slots loaded (Motorcycle, Car, Truck).\n";
-    }
-
 private:
 unordered_map<string, ParkingSlot> slots_;              // slot id -> slot
 unordered_map<string, VehicleEntry> activeVehicles_;   // plate -> active entry
@@ -682,7 +668,6 @@ cout << "================================================\n";
     cout << " Default Rates: Motorcycle 500 | Car 1000 | Truck 2000 RWF/hr\n";
     cout << " Plate: 6-8 chars, no spaces or hyphens (Rwanda or foreign)\n";
     cout << " Future dates/times are NOT allowed.\n";
-cout << " Tip: Use option 12 to load demo slots.\n";
 cout << "================================================\n";
 }
 
@@ -700,7 +685,6 @@ cout << " 8. View Current Tariffs\n";
 cout << " 9. Vehicle Parking History\n";
 cout << "10. All Transaction History\n";
 cout << "11. Daily Revenue Report\n";
-cout << "12. Load Demo Data\n";
 cout << " 0. Exit\n";
 cout << "=================================================\n";
 }
@@ -711,11 +695,11 @@ bool readMenuChoice(int& choice) {
 string line = readLine("Enter Choice: ");         // read full line as text
   line = trim(line);                                     // trim spaces
   if (line.empty()) {                                    // empty input
-cout << "Invalid input! Please enter a valid choice (0-12).\n";
+cout << "Invalid input! Please enter a valid choice (0-11).\n";
     return false;                                        // do not exit program
   }
-  if (!parseStrictInteger(line, choice, 0, 12)) {        // strict parse 0-12
-cout << "Invalid input! Please enter a valid choice (0-12).\n";
+  if (!parseStrictInteger(line, choice, 0, 11)) {        // strict parse 0-11
+cout << "Invalid input! Please enter a valid choice (0-11).\n";
     return false;                                        // reject 09, abc, 1.5, etc.
   }
   return true;                                           // valid menu choice
@@ -868,9 +852,8 @@ cout << "Thank you for using Smart Parking System.\n";
                 case 9:  handleVehicleHistory(system); break;
                 case 10: system.displayAllHistory(); break;
                 case 11: system.displayDailyRevenue(); break;
-                case 12: system.loadDemoData(); break;
                 default:
-cout << "Invalid input! Please enter a valid choice (0-12).\n";
+cout << "Invalid input! Please enter a valid choice (0-11).\n";
                     break;                               // continue program
             }
         } catch (const exception& ex) {           // catch unexpected errors
