@@ -152,20 +152,18 @@ The program **never crashes** on bad input. Invalid entries show an error and th
 - Must start with a letter
 - Letters, digits, and hyphens only (e.g. `C-A1`, `M-A2`)
 
-### Rwandan Plate Number
+### Plate Number (Rwanda or foreign)
 
-Format: **`RA` + letter + 3 digits + letter**
+| Rule | Details |
+|------|---------|
+| Length | 6 to 8 characters |
+| Spaces | Not allowed |
+| Hyphens | Not allowed |
+| Countries | Rwandan and foreign plates accepted |
 
-| Part | Rule | Example |
-|------|------|---------|
-| Prefix | Must be `RA` | RA |
-| Letter | One letter (A–Z) | B |
-| Digits | Exactly 3 digits (0–9) | 123 |
-| Letter | One ending letter (A–Z) | A |
+**Valid examples:** `RAB123A`, `UG1234AB`, `KDA1234`
 
-**Valid examples:** `RAB123A`, `RA B 123 A`, `RA-B-123-A` (spaces/hyphens optional)
-
-**Invalid examples:** `RAB12A`, `RC12345B`, `RAB123`, `rab123a` is accepted and stored as `RAB123A`
+**Invalid examples:** `RA B123A` (space), `RA-B123A` (hyphen), `ABC12` (too short), `TOOLONGPL` (more than 8 chars)
 
 ### Zone Name
 

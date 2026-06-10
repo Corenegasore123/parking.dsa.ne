@@ -87,29 +87,24 @@ bool isValidSlotId(const string& value) {
     return true;                                       // valid slot id
 }
 
-// Validates compact Rwandan plate: RA + letter + 3 digits + letter (e.g. RAB123A)
-bool isValidRwandanPlateCompact(const string& plate) {
-    if (plate.length() != 7) return false;             // must be exactly 7 characters
-    if (plate[0] != 'R' || plate[1] != 'A') return false; // must start with RA
-    if (!isalpha(static_cast<unsigned char>(plate[2]))) return false; // one letter after RA
-    if (!isdigit(static_cast<unsigned char>(plate[3]))) return false; // first digit
-    if (!isdigit(static_cast<unsigned char>(plate[4]))) return false; // second digit
-    if (!isdigit(static_cast<unsigned char>(plate[5]))) return false; // third digit
-    if (!isalpha(static_cast<unsigned char>(plate[6]))) return false; // ending letter
-    return true;                                       // valid Rwandan plate
+// Validates plate: 6-8 characters, no spaces, no hyphens (Rwanda or foreign)
+bool isValidPlateNumber(const string& plate) {
+    if (plate.length() < 6 || plate.length() > 8) return false; // min 6, max 8 chars
+    for (size_t i = 0; i < plate.size(); ++i) {            // scan each character
+        char ch = plate[i];                              // current character
+        if (isspace(static_cast<unsigned char>(ch)) || ch == '-') return false; // no spaces/hyphens
+    }
+    return true;                                         // plate accepted
 }
 
-// Normalizes Rwandan plate input; returns canonical form (e.g. RAB123A) or "" if invalid
-string normalizeRwandanPlate(const string& input) {
-    string compact;                                    // plate without spaces or hyphens
-    string v = trim(input);                            // trim outer whitespace
-    for (size_t i = 0; i < v.size(); ++i) {            // scan each input character
-        char ch = v[i];                                // current character
-        if (ch == ' ' || ch == '-') continue;          // skip spaces and hyphens
-        compact += static_cast<char>(toupper(static_cast<unsigned char>(ch))); // uppercase
+// Trims and uppercases plate for storage; returns "" if invalid
+string normalizePlateNumber(const string& input) {
+    string plate = trim(input);                          // remove outer whitespace
+    if (!isValidPlateNumber(plate)) return "";           // reject invalid plate
+    for (size_t i = 0; i < plate.size(); ++i) {          // uppercase for consistency
+        plate[i] = static_cast<char>(toupper(static_cast<unsigned char>(plate[i])));
     }
-    if (!isValidRwandanPlateCompact(compact)) return ""; // reject invalid format
-    return compact;                                    // return canonical plate
+    return plate;                                        // return normalized plate
 }
 
 // Validates zone names: letters, spaces, hyphens, 2-30 chars
@@ -426,9 +421,9 @@ cout << "Available count: " << count << "\n\n";
             cout << "Error: Plate number cannot be empty.\n";
             return false;                                // reject empty
         }
-        string normalizedPlate = normalizeRwandanPlate(plate); // RA + letter + 3 digits + letter
-        if (normalizedPlate.empty()) {                 // invalid Rwandan plate format
-            cout << "Error: Invalid Rwandan plate. Use RA + letter + 3 digits + letter (e.g. RAB123A).\n";
+        string normalizedPlate = normalizePlateNumber(plate); // 6-8 chars, no spaces/hyphens
+        if (normalizedPlate.empty()) {                 // invalid plate format
+            cout << "Error: Invalid plate. Use 6-8 characters, no spaces or hyphens (e.g. RAB123A, UG1234AB).\n";
             return false;                                // reject bad plate format
         }
         if (activeVehicles_.find(normalizedPlate) != activeVehicles_.end()) { // duplicate active plate
@@ -516,9 +511,9 @@ cout << "Truck:      " << currentPrices_.at(VehicleType::TRUCK)
             cout << "Error: Plate number cannot be empty.\n";
             return false;                                // reject empty
         }
-        string normalizedPlate = normalizeRwandanPlate(plate); // RA + letter + 3 digits + letter
-        if (normalizedPlate.empty()) {                 // invalid Rwandan plate format
-            cout << "Error: Invalid Rwandan plate. Use RA + letter + 3 digits + letter (e.g. RAB123A).\n";
+        string normalizedPlate = normalizePlateNumber(plate); // 6-8 chars, no spaces/hyphens
+        if (normalizedPlate.empty()) {                 // invalid plate format
+            cout << "Error: Invalid plate. Use 6-8 characters, no spaces or hyphens (e.g. RAB123A, UG1234AB).\n";
             return false;                                // reject bad plate format
         }
         unordered_map<string, VehicleEntry>::iterator vit = activeVehicles_.find(normalizedPlate);
@@ -579,9 +574,9 @@ cout << "----------------------------\n";
             cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stop report
         }
-        string normalizedPlate = normalizeRwandanPlate(plate); // normalize search plate
-        if (normalizedPlate.empty()) {                 // invalid Rwandan plate format
-            cout << "Error: Invalid Rwandan plate. Use RA + letter + 3 digits + letter (e.g. RAB123A).\n";
+        string normalizedPlate = normalizePlateNumber(plate); // normalize search plate
+        if (normalizedPlate.empty()) {                 // invalid plate format
+            cout << "Error: Invalid plate. Use 6-8 characters, no spaces or hyphens.\n";
             return;                                      // stop report
         }
         bool found = false;                              // match flag
@@ -685,7 +680,7 @@ cout << "\n================================================\n";
 cout << "     KIGALI SMART PARKING MANAGEMENT SYSTEM     \n";
 cout << "================================================\n";
     cout << " Default Rates: Motorcycle 500 | Car 1000 | Truck 2000 RWF/hr\n";
-    cout << " Plate format: RA + letter + 3 digits + letter (e.g. RAB123A)\n";
+    cout << " Plate: 6-8 chars, no spaces or hyphens (Rwanda or foreign)\n";
     cout << " Future dates/times are NOT allowed.\n";
 cout << " Tip: Use option 12 to load demo slots.\n";
 cout << "================================================\n";
@@ -783,7 +778,7 @@ cout << "Unexpected error: " << ex.what() << "\n";
 // Menu handler: vehicle entry
 void handleVehicleEntry(ParkingSystem& system) {
     try {                                                // exception guard
-        string plate = trim(readLine("Enter Rwandan plate (e.g. RAB123A): "));
+        string plate = trim(readLine("Enter plate number (6-8 chars): "));
         if (isEmptyOrWhitespace(plate)) {                // empty plate
             cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stay in program
@@ -801,7 +796,7 @@ cout << "Unexpected error: " << ex.what() << "\n";
 // Menu handler: vehicle exit
 void handleVehicleExit(ParkingSystem& system) {
     try {                                                // exception guard
-        string plate = trim(readLine("Enter Rwandan plate (e.g. RAB123A): "));
+        string plate = trim(readLine("Enter plate number (6-8 chars): "));
         if (isEmptyOrWhitespace(plate)) {                // empty plate
             cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stay in program
@@ -835,7 +830,7 @@ cout << "Unexpected error: " << ex.what() << "\n";
 // Menu handler: vehicle history search
 void handleVehicleHistory(ParkingSystem& system) {
     try {                                                // exception guard
-        string plate = trim(readLine("Enter Rwandan plate to search (e.g. RAB123A): "));
+        string plate = trim(readLine("Enter plate to search (6-8 chars): "));
         if (isEmptyOrWhitespace(plate)) {                // empty plate
             cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stay in program
