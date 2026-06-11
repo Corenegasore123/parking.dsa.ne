@@ -842,7 +842,7 @@ cout << "     KIGALI SMART PARKING MANAGEMENT SYSTEM     \n";
 cout << "================================================\n";
     cout << " Default Rates: Motorcycle 500 | Car 1000 | Truck 2000 RWF/hr\n";
     cout << " Plate: 6-8 chars, no spaces or hyphens (Rwanda or foreign)\n";
-    cout << " Date/time: TODAY only | past times OK | future time NOT allowed.\n";
+    cout << " Entry and exit times are recorded automatically from system clock.\n";
 cout << "================================================\n";
 }
 
@@ -963,8 +963,8 @@ void handleVehicleEntry(ParkingSystem& system) {
         }
         VehicleType type;                                // selected type
         if (!promptVehicleType(type)) return;            // invalid type
-        DateTime entryDt;                                // entry datetime
-        if (!promptDateTime("Enter entry (DD-MM-YYYY HH:MM): ", entryDt)) return;
+        DateTime entryDt = DateTime::now();              // capture system time at entry
+        cout << "Entry time (system): " << formatDateTime(entryDt) << "\n";
         system.registerVehicleEntry(plate, type, entryDt); // register entry
     } catch (const exception& ex) {                 // catch runtime errors
 cout << "Unexpected error: " << ex.what() << "\n";
@@ -979,8 +979,8 @@ void handleVehicleExit(ParkingSystem& system) {
             cout << "Error: Plate number cannot be empty.\n";
             return;                                      // stay in program
         }
-        DateTime exitDt;                                 // exit datetime
-        if (!promptDateTime("Enter exit (DD-MM-YYYY HH:MM): ", exitDt)) return;
+        DateTime exitDt = DateTime::now();               // capture system time at exit
+        cout << "Exit time (system): " << formatDateTime(exitDt) << "\n";
         ParkingTransaction receipt;                      // output receipt
         system.processVehicleExit(plate, exitDt, receipt); // process exit
     } catch (const exception& ex) {                 // catch runtime errors
